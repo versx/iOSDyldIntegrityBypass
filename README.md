@@ -13,7 +13,7 @@ Applications compiled with iOS dynamic linker (Dyld) file integrity protection w
 You have a cracked/decrypted binary, you injected your tweak, but the application crashes on launch. Check out your devices crash log. If the crash log show's the main thread never makes it past `_dyld_start`, guess what!? Dyld is killing you!?
   
 ### What is Dyld doing?
-Thankfully Dyld's source, like much of Apple's packages, is open and available directly via apple at either. https://github.com/opensource-apple or https://opensource.apple.com. 
+Thankfully the source for dyld, like much of Apple's work, is open and available via apple directly at either, https://github.com/opensource-apple or https://opensource.apple.com. 
 This repo isn't to break down how dyld operates, but it is HIGHLY recommended you become familiar with the process flow for opening and executing a binary of iOS systems if you want to have a proper understanding of how it flags you, and why this bypass works.
 
 Pay attention to `ImageLoaderMachO.h` and trace back through dyld's source to get a good idea of what's going on.
@@ -30,12 +30,12 @@ This initial read pulled *the first* 4 memory pages from the binary. iOS could u
 
 Since we know there is the need to validate and abort if code signature is invalid, you may have already been able to guess where this 2nd read is focused. :eyes:
 
-The 2nd read() is located such that the end of this page worth of data includes the beginning of the binaries code signature to ensure that it is valid, else CrashIfInvalidCodeSignature() will throw a non-zero exit.
+The 2nd read() is located such that the end of this page worth of data includes the beginning of the binary's code signature to ensure that it is valid, else CrashIfInvalidCodeSignature() will throw a non-zero exit.
 
 Given that I could now see where the application was being validated, it's time to give dyld what it wants :wink:
 
 I provided the file locateTarget.xm tweak (Theos tweakfile type) to inject into your target IPA. The output will be the first 8 bytes of the 0x1000 byte read. Use this too look at your original stock binary from the appstore, and get the full 0x1000 unmodified hex data. 
-Grab the original 0x4000 bytes from the original binary as wel land now we can make a bypass. 
+Grab the original 0x4000 bytes from the original binary while your're already looking at it and now we can make a bypass. 
 
 ## Crafting your bypass dylib.
 For my example, we know that:
@@ -48,11 +48,13 @@ The bypass is as simple as it sounds.
 1) Hardcode the stock first 4 memory pages into a uint8_t byte array
 2) Hardcode the memory page you found earlier into a uint8_t byte array.
 3) Create a custom read() implementation, and declare a pointer func to hold the original implementation
-4) In the custom read, if the size of the read is 0x4000 bytes, and you have no swapped them yet with a global counter, returns the original 4 memory pages when read() is invoked. The same logic is applied for the next 0x1000 Byte block, and the global counter upped, such that you don't interfere with any further read() calls of these sizes. If neither of the 2 cases are true, it returns the original implementation with original args.
-5) Create an init call, where you invoke fishhooks symbol rebinding
+4) In the custom read, if the size of the read is 0x4000 bytes, and you have no swapped them yet with a global counter, memcpy the original 4 memory pages into place when read() is invoked. The same logic is applied for the next 0x1000 Byte block, and the global counter upped, such that you don't interfere with any further read() calls of these sizes. If neither of the 2 cases are true, it returns the original implementation with original args.
+5) Create an init call, where you invoke fishhooks symbol rebinding. 
+To invoke the bypass, you simply need to invoke the Init call in a constructor block (%ctor in logos) and off you go.
 
 ### How to use it?
 However you want!? I've personally used a static framework template project in xcode with an additional buildphase to compile the project output into a dylib, and then inject that how i see fit. You could add a buildphase in that same project where you specify your target IPA, inject your dylib, and resign in a single step. 
 
 The world is your oyster.
 
+Shout out to Jorg and The silly Canadaian who helped hold my hand as I learned enough C++ to read through source and implement this. <3
