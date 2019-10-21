@@ -13,11 +13,23 @@ This repo isn't to break down how dyld operates, but it is HIGHLY recommended yo
 
 Pay attention to `ImageLoaderMachO.h` and trace back through dyld's source to get a good idea of what's going on.
 
-### How do I bypass this?
-If you were to use fishhook or another method to rebind symbols on runtime, and monitored open(), read(), close() you will find 2 calls that should stand out. 
+### Let's watch what's happening.
+If you were to use fishhook or another method to rebind symbols on runtime, and monitored open(), read(), close() you will find 2 calls that should stand out. On the application i was investigating I received.
+
 1) Open() called on original binary image
 2) Read() for 4 Mem Pages (0x4000 Bytes on iOS 64 bit systems)
 3) Read() for 1 Mem Page (0x1000 Bytes)
 4) close() original binary image.
 
-This initial read pulls *the first* 4 memory pages from the binary. iOS could then validate each page based on a hash, and also now has the files header and all load commands, and can use these to ensure the filesize, and location of target data is in proper alignment and valid. This includes checking the LC_ENCRYPTION_INFO_64 load command, to determine whether or not the file needs decrypted from Apple's FairPlay DRM as any official App store application would, and the LC_CODE_SIGNATURE_64 load command, which contains the offset and size of the binaries original code signature.
+This initial read pulled *the first* 4 memory pages from the binary. iOS could use this to validate each page based on a hash, and also now has the files header and all load commands. (Think: ensure the filesize, and location of target data is in  alignment and valid) This includes checking the LC_ENCRYPTION_INFO_64 load command, to determine whether or not the file needs decrypted from Apple's FairPlay DRM as any official App store application would, and the LC_CODE_SIGNATURE_64 load command, which contains the offset and size of the binaries original code signature.
+
+Since we know there is the need to validate and abort if code signature is invalid, you may have already been able to guess where this 2nd read is focused. :eyes:
+
+The 2nd read() is located such that the end of this page worth of data includes the beginning of the binaries code signature to ensure that it is valid, else CrashIfInvalidCodeSignature() will throw a non-zero exit.
+
+Given that I could now see where the application was being validated, it's time to give dyld what it wants :wink:
+
+I provided the file locateTarget.xm tweak (Theos tweakfile type) to inject into your target IPA. The output will be the first 8 bytes of the 0x1000 byte read. Use this too look at your original stock binary from the appstore, and get the full 0x1000 unmodified hex data. 
+Grab the original 0x4000 bytes from the original binary as wel land now we can make a bypass. 
+
+## Crafting your bypass dylib.
