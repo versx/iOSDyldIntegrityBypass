@@ -1,6 +1,11 @@
 # iOSDyldIntegrityBypass
 Guide and Tweak on how to bypass applications compiled with Integrity checks. Designed for Jailed ios tweaks.
 
+Expected tools avialable:
+- Xcode
+- Theos and Theos-Jailed
+- Facebooks Fishhook library (Available on github)
+
 ## General Overview
 Applications compiled with iOS dynamic linker (Dyld) file integrity protection will crash on launch when working with a cracked and/or resigned binary. Since we require a decrypted binary to inject any tweaks, preparation on how to bypass these basic FIP protocols is critical for both Jailbreak and Jailed tweak developers.
 
