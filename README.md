@@ -38,3 +38,21 @@ I provided the file locateTarget.xm tweak (Theos tweakfile type) to inject into 
 Grab the original 0x4000 bytes from the original binary as wel land now we can make a bypass. 
 
 ## Crafting your bypass dylib.
+For my example, we know that:
+1) A read of the first 4 pages (0x4000 Bytes) will be performed, and expects original unmodified binary's data.
+2) A read of 1 page (0x1000 Bytes) will be performed, and expects again, original unmodified binary's data
+
+The basic bypass template is available in the bypassDyld folder of the repo. I generalized this into an objectic-c header and .m file so that it could be used with more than a Theos jailed project. 
+
+The bypass is as simple as it sounds. 
+1) Hardcode the stock first 4 memory pages into a uint8_t byte array
+2) Hardcode the memory page you found earlier into a uint8_t byte array.
+3) Create a custom read() implementation, and declare a pointer func to hold the original implementation
+4) In the custom read, if the size of the read is 0x4000 bytes, and you have no swapped them yet with a global counter, returns the original 4 memory pages when read() is invoked. The same logic is applied for the next 0x1000 Byte block, and the global counter upped, such that you don't interfere with any further read() calls of these sizes. If neither of the 2 cases are true, it returns the original implementation with original args.
+5) Create an init call, where you invoke fishhooks symbol rebinding
+
+### How to use it?
+However you want!? I've personally used a static framework template project in xcode with an additional buildphase to compile the project output into a dylib, and then inject that how i see fit. You could add a buildphase in that same project where you specify your target IPA, inject your dylib, and resign in a single step. 
+
+The world is your oyster.
+
